@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"strconv"
-	"time"
 	"worker-pool/internal/pool"
 )
 
@@ -25,6 +24,4 @@ func main() {
 	}
 
 	pool.Close()
-
-	time.Sleep(30 * time.Second)
 }
