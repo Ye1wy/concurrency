@@ -18,7 +18,7 @@ func main() {
 			workers.Add()
 		}
 
-		if i == 5 || i == 2000 {
+		if i == 5 || i == 1000 {
 			workers.Delete()
 		}
 	}

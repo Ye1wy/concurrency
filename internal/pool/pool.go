@@ -3,7 +3,6 @@ package pool
 import (
 	"context"
 	"fmt"
-	"time"
 )
 
 const defaultEdge = 3
@@ -64,7 +63,7 @@ func (p *WorkerPool) worker(id uint64, jobs chan string) {
 				return
 			}
 		default:
-			time.Sleep(time.Second)
+			// time.Sleep(time.Second)
 		}
 
 		fmt.Println("output: worker", id, j)
