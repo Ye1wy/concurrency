@@ -1,29 +1,30 @@
 package main
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 	"worker-pool/internal/pool"
 )
 
 func main() {
-	// data := []string{"aboba", "amogus", "biba", "boba", "phoba", "phoga", "sigame", "cross", "phos", "nok", "kok", "hoh", "HOA", "pipa", "pipe"}
+	pool := pool.NewWorkerPool(3)
 
-	workers := pool.NewWorkerPool(3)
+	for i := 0; i < 1000; i++ {
+		pool.Process(strconv.Itoa(i))
 
-	for i := 0; i < 5000; i++ {
-		workers.ProcessData(strconv.Itoa(i))
-
-		if i == 2 || i == 4 || i == 400 {
-			workers.Add()
+		if i == 2 || i == 500 {
+			pool.AddWorker()
 		}
 
-		if i == 5 || i == 1000 {
-			workers.Delete()
+		if i == 10 || i == 600 {
+			if err := pool.RemoveWorker(); err != nil {
+				fmt.Println(err)
+			}
 		}
 	}
 
-	workers.CloseJobChan()
+	pool.Close()
 
 	time.Sleep(30 * time.Second)
 }

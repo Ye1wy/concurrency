@@ -2,70 +2,109 @@ package pool
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sync"
+	"time"
 )
 
 const defaultEdge = 3
 
+var (
+	ErrNoWorkers = errors.New("there are no more workers")
+	ErrNotExist  = errors.New("worker not exist in map")
+)
+
+type Worker struct {
+	id     uint64
+	cancel context.CancelFunc
+}
+
 type WorkerPool struct {
-	ctx       context.Context
-	ctxCancel context.CancelFunc
-	workers   uint64
-	jobs      chan string
+	mu      sync.Mutex
+	jobs    chan string
+	workers map[uint64]*Worker
+	counter uint64
+	wg      sync.WaitGroup
 }
 
 func NewWorkerPool(workers uint64) *WorkerPool {
-	ctx, cancel := context.WithCancel(context.Background())
-
 	pool := &WorkerPool{
-		ctx:       ctx,
-		ctxCancel: cancel,
-		workers:   workers,
-		jobs:      make(chan string, defaultEdge),
+		jobs:    make(chan string, defaultEdge),
+		workers: make(map[uint64]*Worker),
 	}
 
-	pool.initWorkers()
-
+	for i := uint64(0); i < workers; i++ {
+		pool.AddWorker()
+	}
 	return pool
 }
 
-func (p *WorkerPool) Add() {
-	p.workers++
-	go p.worker(p.workers, p.jobs)
-}
+func (p *WorkerPool) AddWorker() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 
-func (p *WorkerPool) Delete() {
-	p.ctxCancel()
-	p.workers--
-}
+	p.counter++
+	id := p.counter
+	ctx, cancel := context.WithCancel(context.Background())
 
-func (p *WorkerPool) initWorkers() {
-	for id := 1; uint64(id) <= p.workers; id++ {
-		go p.worker(uint64(id), p.jobs)
+	worker := &Worker{
+		id:     id,
+		cancel: cancel,
 	}
+
+	p.workers[id] = worker
+	p.wg.Add(1)
+	go p.runWorker(ctx, id)
 }
 
-func (p *WorkerPool) ProcessData(data string) {
+func (p *WorkerPool) RemoveWorker() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.counter == 0 {
+		return ErrNoWorkers
+	}
+	worker, ok := p.workers[p.counter]
+	if !ok {
+		return fmt.Errorf("worker %d: %w", p.counter, ErrNotExist)
+	}
+
+	worker.cancel()
+	delete(p.workers, p.counter)
+	p.counter--
+	return nil
+}
+
+func (p *WorkerPool) Process(data string) {
 	p.jobs <- data
 }
 
-func (p *WorkerPool) CloseJobChan() {
+func (p *WorkerPool) Close() {
 	close(p.jobs)
+	p.mu.Lock()
+	for _, worker := range p.workers {
+		worker.cancel()
+	}
+
+	p.mu.Unlock()
+	p.wg.Wait()
 }
 
-func (p *WorkerPool) worker(id uint64, jobs chan string) {
-	for j := range jobs {
+func (p *WorkerPool) runWorker(ctx context.Context, id uint64) {
+	defer p.wg.Done()
+
+	for {
 		select {
-		case <-p.ctx.Done():
-			if id == (p.workers + 1) {
-				jobs <- j
-				p.ctx, p.ctxCancel = context.WithCancel(context.Background())
+		case <-ctx.Done():
+			fmt.Printf("worker %d is dead\n", id)
+			return
+		case job, ok := <-p.jobs:
+			if !ok {
 				return
 			}
-		default:
-			// time.Sleep(time.Second)
-		}
 
-		fmt.Println("output: worker", id, j)
+			time.Sleep(59 * time.Millisecond)
+			fmt.Printf("worker %d processing: %s\n", id, job)
+		}
 	}
 }
