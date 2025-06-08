@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"strconv"
 	"worker-pool/internal/pool"
 )
@@ -18,7 +18,7 @@ func main() {
 
 		if i == 10 || i == 600 {
 			if err := pool.RemoveWorker(); err != nil {
-				fmt.Println(err)
+				log.Println(err)
 			}
 		}
 	}

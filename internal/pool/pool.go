@@ -37,6 +37,7 @@ func NewWorkerPool(workers uint64) *WorkerPool {
 	for i := uint64(0); i < workers; i++ {
 		pool.AddWorker()
 	}
+
 	return pool
 }
 
@@ -61,9 +62,11 @@ func (p *WorkerPool) AddWorker() {
 func (p *WorkerPool) RemoveWorker() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
 	if p.counter == 0 {
 		return ErrNoWorkers
 	}
+
 	worker, ok := p.workers[p.counter]
 	if !ok {
 		return fmt.Errorf("worker %d: %w", p.counter, ErrNotExist)
@@ -82,6 +85,7 @@ func (p *WorkerPool) Process(data string) {
 func (p *WorkerPool) Close() {
 	close(p.jobs)
 	p.mu.Lock()
+
 	for _, worker := range p.workers {
 		worker.cancel()
 	}
